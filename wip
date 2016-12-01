@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -e
+
+if [ ! -n "$1" ]
+then
+    echo "Usage: $(basename "$0") [amend push rebase]"
+    exit 85
+fi
+
+function do_amend {
+    local status
+    status="$(git status --porcelain --untracked-files=no 2> /dev/null)"
+    if [ -n "${status}" ]
+    then
+        git add .
+        git commit --amend --no-edit
+    fi
+}
+
+function do_push {
+    git push origin "+$(git rev-parse --abbrev-ref HEAD)"
+}
+
+function do_rebase {
+    git fetch
+    git rebase origin/master
+}
+
+case "$1" in
+amend)
+    do_amend
+    ;;
+push)
+    do_push
+    ;;
+rebase)
+    do_rebase
+    ;;
+*)
+    echo "Unknown command '$1'"
+    exit 1
+    ;;
+esac
