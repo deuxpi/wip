@@ -2,40 +2,59 @@
 
 set -e
 
-if [ ! -n "$1" ]
+if [ -z "$1" ]
 then
-    echo "Usage: $(basename "$0") [amend push rebase]"
+    echo "Usage: $(basename "$0") [amend commit push rebase reset]"
     exit 85
 fi
+
+function confirm {
+    read -r -p "$0: continue? " response
+    [[ "$response" =~ ^[yY] ]]
+}
 
 function do_amend {
     local status
     status="$(git status --porcelain --untracked-files=no 2> /dev/null)"
     if [ -n "${status}" ]
     then
-        git add .
-        git commit --amend --no-edit
+        git commit --all --amend --no-edit
     fi
 }
 
+function do_commit {
+    git commit --all -m 'WIP'
+}
+
 function do_push {
-    git push origin "+$(git rev-parse --abbrev-ref HEAD)"
+    git push --set-upstream origin "+$(git rev-parse --abbrev-ref HEAD)"
 }
 
 function do_rebase {
     git fetch
-    git rebase origin/master
+    git rebase --quiet origin/master
+}
+
+function do_reset {
+    git fetch
+    git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"
 }
 
 case "$1" in
 amend)
     do_amend
     ;;
+commit)
+    do_commit
+    ;;
 push)
     do_push
     ;;
 rebase)
     do_rebase
+    ;;
+reset)
+    confirm && do_reset
     ;;
 *)
     echo "Unknown command '$1'"
