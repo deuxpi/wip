@@ -4,7 +4,7 @@ set -e
 
 if [ -z "$1" ]
 then
-    echo "Usage: $(basename "$0") [amend commit push rebase rebase-onto reset]"
+    echo "Usage: $(basename "$0") [amend commit continue push rebase rebase-onto reset]"
     exit 85
 fi
 
@@ -18,38 +18,73 @@ function do_amend {
     status="$(git status --porcelain --untracked-files=no 2> /dev/null)"
     if [ -n "${status}" ]
     then
+        echo '👷‍♀️ git commit'
         git commit --all --amend --no-edit
     fi
 }
 
 function do_commit {
+    echo '👷‍♀️ git commit'
     git commit --all -m 'WIP'
 }
 
+function do_continue {
+    if [ -f '.git/CHERRY_PICK_HEAD' ]; then
+        echo '👷‍♀️ git cherry-pick --continue'
+        git cherry-pick --continue
+    elif [ -f '.git/REBASE_HEAD' ]; then
+        echo '👷‍♀️ git rebase --continue'
+        git rebase --continue
+    fi
+}
+
 function do_push {
-    git push --set-upstream origin "+$(git rev-parse --abbrev-ref HEAD)"
+    local branch
+    local remote
+    branch="$(git rev-parse --abbrev-ref HEAD)"
+    : "${remote:=$(git config branch."$branch".remote)}" "${remote:=origin}"
+    echo '👷‍♀️ git push'
+    git push --set-upstream $remote "+$branch"
 }
 
 function do_rebase {
+    local remote
+    local branch
+    branch="$(git rev-parse --abbrev-ref HEAD)"
+    : "${remote:=$(git config branch."$branch".remote)}" "${remote:=origin}"
+    echo '👷‍♀️ git fetch'
     git fetch --quiet
-    git rebase --quiet origin/master
+    echo '👷‍♀️ git rebase'
+    git rebase --quiet "$remote/master"
 }
 
 function do_rebase_onto() {
     base_branch="$1"
     current_branch="$(git rev-parse --abbrev-ref HEAD)"
 
+    echo '👷‍♀️ git checkout'
     git checkout --quiet "$base_branch"
     base_rev="$(git rev-parse HEAD)"
     do_rebase
 
+    echo '👷‍♀️ git checkout'
     git checkout --quiet "$current_branch"
+
+    echo '👷‍♀️ git rebase --onto'
     git rebase --quiet --onto "$base_branch" "$base_rev" "$current_branch"
 }
 
 function do_reset {
+    local remote
+    local branch
+    branch="$(git rev-parse --abbrev-ref HEAD)"
+    : "${remote:=$(git config branch."$branch".remote)}" "${remote:=origin}"
+
+    echo '👷‍♀️ git fetch'
     git fetch
-    git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"
+
+    echo '👷‍♀️ git reset --hard'
+    git reset --hard "$remote/$branch"
 }
 
 case "$1" in
@@ -58,6 +93,9 @@ amend)
     ;;
 commit|wip)
     do_commit
+    ;;
+continue)
+    do_continue
     ;;
 push)
     do_push
